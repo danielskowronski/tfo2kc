@@ -1,7 +1,6 @@
 # SPDX-FileCopyrightText: 2026-present Daniel Skowroński <tfo2kc@skowronski.cloud>
 #
 # SPDX-License-Identifier: BSD-3-Clause
-
 import os
 import sys
 import json
@@ -40,15 +39,18 @@ def fetch_tf_output(binary, key, cwd):
     else:
         raise ValueError(f"Unrecognized Terraform output format: {data!r}")
 
-def upsert(entries, new_entry, key="name"):
+def upsert(entries, new_entry, key="name") -> bool:
     """
     Replace any existing entry with the same name, otherwise append.
     """
     for i, e in enumerate(entries):
         if e[key] == new_entry[key]:
             entries[i] = new_entry
-            return
+            return True
+    old_len = len(entries)
     entries.append(new_entry)
+    new_len = len(entries)
+    return new_len > old_len
 
 @click.command()
 @click.option('-t', '--terraform-binary', default=None,
@@ -124,38 +126,28 @@ def main(terraform_binary, output_key, cluster_name, user_name,
     # Backup before modifying
     shutil.copy2(kube_path, kube_path + BACKUP_SUFFIX)
 
-    # Capture originals for reporting
-    orig_clusters = [c['name'] for c in existing_cfg.get('clusters', [])]
-    orig_users    = [u['name'] for u in existing_cfg.get('users', [])]
-    orig_contexts = [x['name'] for x in existing_cfg.get('contexts', [])]
-
     # Merge clusters/users/contexts and apply name overrides
     for cluster_entry in new_cfg.get('clusters', []):
         cluster_entry['name'] = cluster
-        upsert(existing_cfg['clusters'], cluster_entry)
+        changed=upsert(existing_cfg['clusters'], cluster_entry)
+        if changed:
+            click.echo(f"Added/updated cluster '{cluster}' in kubeconfig.")
     for user_entry in new_cfg.get('users', []):
         user_entry['name'] = user
-        upsert(existing_cfg['users'], user_entry)
+        changed=upsert(existing_cfg['users'], user_entry)
+        if changed:
+            click.echo(f"Added/updated user '{user}' in kubeconfig.")
     for ctx_entry in new_cfg.get('contexts', []):
         ctx_entry['name'] = ctx
-        upsert(existing_cfg['contexts'], ctx_entry)
+        ctx_entry['cluster'] = cluster
+        ctx_entry['user'] = user
+        changed=upsert(existing_cfg['contexts'], ctx_entry)
+        if changed:
+            click.echo(f"Added/updated context '{ctx}' in kubeconfig.")
 
     # Preserve the original current-context
     if existing_cfg.get('current-context'):
         existing_cfg['current-context'] = existing_cfg['current-context']
-
-    # Report what was added or changed
-    new_clusters = [c['name'] for c in existing_cfg['clusters']]
-    new_users    = [u['name'] for u in existing_cfg['users']]
-    new_contexts = [x['name'] for x in existing_cfg['contexts']]
-
-    added_clusters = set(new_clusters) - set(orig_clusters)
-    added_users    = set(new_users)    - set(orig_users)
-    added_contexts = set(new_contexts) - set(orig_contexts)
-
-    click.echo(f"Updated clusters: {', '.join(sorted(added_clusters))}")
-    click.echo(f"Updated users:    {', '.join(sorted(added_users))}")
-    click.echo(f"Updated contexts: {', '.join(sorted(added_contexts))}")
 
     # Write out the merged kubeconfig
     with open(kube_path, 'w') as f:
@@ -163,3 +155,4 @@ def main(terraform_binary, output_key, cluster_name, user_name,
 
 if __name__ == '__main__':
     main()
+  
