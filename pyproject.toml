@@ -1,0 +1,63 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "tfo2kc"
+dynamic = ["version"]
+description = "tfo2kc: Terraform/Terragrunt/openTofu Output 2 KubeConfig: CLI to merge kubeconfig obtained from TF output as string into ~/.kube/config"
+readme = "README.md"
+requires-python = ">=3.8"
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3.8",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: Implementation :: CPython",
+  "Programming Language :: Python :: Implementation :: PyPy",
+]
+dependencies = [
+    "click",
+    "ruamel.yaml",
+]
+license = "BSD-3-Clause"
+keywords = [
+  "terraform",
+  "terragrunt",
+  "opentofu",
+  "kubeconfig",
+  "kubernetes",
+  "devops"
+]
+authors = [
+  { name = "Daniel Skowroński", email = "tfo2kc@skowronski.cloud" },
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/tfo2kc"]
+
+[project.scripts]
+tfo2kc = "tfo2kc.cli:main"
+
+[project.urls]
+Documentation = "https://github.com/danielskowronski/tfo2kc#readme"
+Issues = "https://github.com/danielskowronski/tfo2kc/issues"
+Source = "https://github.com/danielskowronski/tfo2kc"
+
+[tool.hatch.version]
+path = "src/tfo2kc/__about__.py"
+
+[tool.hatch.envs.types]
+extra-dependencies = [
+  "mypy>=1.0.0",
+]
+
+[tool.hatch.envs.types.scripts]
+check = "mypy --install-types --non-interactive {args:src/tfo2kc tests}"
+
+[tool.ruff]
+indent-width = 2
+line-length = 120
